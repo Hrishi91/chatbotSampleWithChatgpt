@@ -13,10 +13,9 @@ if "messages" not in st.session_state:
         {
             "role": "system",
             "content": (
-                "তুমি একজন স্বাস্থ্য সহকারী, ব্যবহারকারী যে ভাষায়ই লিখুক না কেন, "
-                "তুমি সবসময় বাংলা ভাষায় উত্তর দেবে। "
-                "ব্যবহারকারীর উপসর্গ শুনে সাধারণ স্বাস্থ্য পরামর্শ দাও। "
-                "তুমি ডাক্তার নও, তাই শুধুমাত্র সাধারণ সাবধানতা বা পরামর্শ দাও।"
+                "তুমি একজন স্বাস্থ্য সহকারী। ব্যবহারকারী যেকোনো ভাষায় লিখতে পারে, "
+                "কিন্তু তুমি সবসময় বাংলা ভাষায় সহজ ও সাধারণ পরামর্শ দেবে। "
+                "তুমি ডাক্তার নও, তাই ওষুধ বা নির্দিষ্ট চিকিৎসা দিও না।"
             )
         }
     ]
@@ -26,10 +25,10 @@ for message in st.session_state.messages[1:]:  # skip system message
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# User input (can be in Bengali or English)
-user_input = st.chat_input("আপনার উপসর্গ লিখুন... (বাংলা বা ইংরেজিতে লিখতে পারেন)")
+# Input box (accept Bengali or English)
+user_input = st.chat_input("আপনার উপসর্গ লিখুন... (বাংলা বা ইংরেজিতে)")
 
-# Function to get a response from OpenAI in Bengali
+# Function to get assistant response
 def get_response(messages):
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -37,16 +36,27 @@ def get_response(messages):
     )
     return response.choices[0].message.content
 
-# If user input exists
+# When user submits input
 if user_input:
-    # Save user message
+    # Display user's original input
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # Get assistant response in Bengali
-    response = get_response(st.session_state.messages)
-    st.session_state.messages.append({"role": "assistant", "content": response})
+    # Construct assistant prompt explicitly (to inject instruction)
+    assistant_prompt = (
+        f"ব্যবহারকারী লিখেছে: \"{user_input}\"। "
+        "উপসর্গ বিশ্লেষণ করে বাংলায় সহজ ভাষায় সাধারণ স্বাস্থ্য পরামর্শ দাও। "
+        "ডাক্তারের পরামর্শ ছাড়া কোনো চিকিৎসা বা ওষুধের নাম দিও না।"
+    )
 
+    # Append assistant prompt as if user asked it
+    messages_for_response = st.session_state.messages + [{"role": "user", "content": assistant_prompt}]
+
+    # Get assistant response
+    response = get_response(messages_for_response)
+
+    # Save assistant message
+    st.session_state.messages.append({"role": "assistant", "content": response})
     with st.chat_message("assistant"):
         st.markdown(response)
